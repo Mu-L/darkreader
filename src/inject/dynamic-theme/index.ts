@@ -113,17 +113,33 @@ const scheduleInversionStyleUpdate = throttle(() => {
     }
 });
 
+const emptyPseudoClasses = [':before', ':after', ':empty'];
+
+function makeSelectorEmpty(selector: string) {
+    selector = selector.trim();
+    if (emptyPseudoClasses.some((pseudo) => selector.endsWith(pseudo))) {
+        return selector
+    }
+    return `${selector}:empty`;
+}
+
 setFilterSelectorHandler((selector, type) => {
     if (!selector) {
         return;
     }
     const selectors = filterSelectors[type];
-    let emptySelector = (selector.endsWith(':before') || selector.endsWith(':after') || selector.endsWith(':empty')) ? selector : `${selector}:empty`;
-    if (selectors.has(emptySelector)) {
-        return;
+    let didPush = false;
+    selector.split(',').forEach((value) => {
+        const s = makeSelectorEmpty(value);
+        if (selectors.has(s)) {
+            return;
+        }
+        selectors.add(s);
+        didPush = true;
+    });
+    if (didPush) {
+        scheduleInversionStyleUpdate();
     }
-    selectors.add(emptySelector);
-    scheduleInversionStyleUpdate();
 });
 
 function setInversionStyleValue(invertStyle: HTMLStyleElement) {
