@@ -118,10 +118,11 @@ setFilterSelectorHandler((selector, type) => {
         return;
     }
     const selectors = filterSelectors[type];
-    if (selectors.has(selector)) {
+    let emptySelector = (selector.endsWith(':before') || selector.endsWith(':after') || selector.endsWith(':empty')) ? selector : `${selector}:empty`;
+    if (selectors.has(emptySelector)) {
         return;
     }
-    selectors.add(selector);
+    selectors.add(emptySelector);
     scheduleInversionStyleUpdate();
 });
 
