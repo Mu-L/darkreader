@@ -100,25 +100,29 @@ function injectStaticStyle(style: HTMLStyleElement, prevNode: Node | null, watch
     }
 }
 
-const invertSelectors = new Set<string>();
-const dimSelectors = new Set<string>();
-const lightSelectors = new Set<string>();
+const filterSelectors = {
+    invert: new Set<string>(),
+    dim: new Set<string>(),
+    light: new Set<string>(),
+};
+
+const scheduleInversionStyleUpdate = throttle(() => {
+    const invertStyle = document.head?.querySelector<HTMLStyleElement>('.darkreader--invert');
+    if (invertStyle) {
+        setInversionStyleValue(invertStyle);
+    }
+});
 
 setFilterSelectorHandler((selector, type) => {
     if (!selector) {
         return;
     }
-    const bucket = type === 'invert' ? invertSelectors
-        : type === 'dim' ? dimSelectors
-            : lightSelectors;
-    if (bucket.has(selector)) {
+    const selectors = filterSelectors[type];
+    if (selectors.has(selector)) {
         return;
     }
-    bucket.add(selector);
-    const invertStyle = document.head?.querySelector<HTMLStyleElement>('.darkreader--invert');
-    if (invertStyle) {
-        setInversionStyleValue(invertStyle);
-    }
+    selectors.add(selector);
+    scheduleInversionStyleUpdate();
 });
 
 function setInversionStyleValue(invertStyle: HTMLStyleElement) {
@@ -139,23 +143,17 @@ function setInversionStyleValue(invertStyle: HTMLStyleElement) {
         ].join('\n'));
     };
 
-    if (fixes && Array.isArray(fixes.invert) && fixes.invert.length > 0) {
-        appendRule(fixes.invert, getCSSFilterValue({
+    if ((fixes && Array.isArray(fixes.invert) && fixes.invert.length > 0) || filterSelectors.invert.size > 0) {
+        appendRule([...(fixes?.invert ?? []), ...filterSelectors.invert], getCSSFilterValue({
             ...theme,
             contrast: theme.mode === 0 ? theme.contrast : clamp(theme.contrast - 10, 0, 100),
         }));
     }
-    if (invertSelectors.size > 0) {
-        appendRule([...invertSelectors], getCSSFilterValue({
-            ...theme,
-            sepia: clamp(theme.sepia + 10, 0, 100),
-        }));
+    if (filterSelectors.dim.size > 0) {
+        appendRule([...filterSelectors.dim], getCSSFilterValue(theme));
     }
-    if (dimSelectors.size > 0) {
-        appendRule([...dimSelectors], getCSSFilterValue(theme));
-    }
-    if (lightSelectors.size > 0) {
-        appendRule([...lightSelectors], getCSSFilterValue({
+    if (filterSelectors.light.size > 0) {
+        appendRule([...filterSelectors.light], getCSSFilterValue({
             ...theme,
             brightness: clamp(theme.brightness - 10, 5, 200),
             sepia: clamp(theme.sepia + 10, 0, 100),
@@ -948,6 +946,7 @@ export function removeDynamicTheme(): void {
     adoptedStyleFallbacks.clear();
 
     metaObserver && metaObserver.disconnect();
+    scheduleInversionStyleUpdate.cancel();
 
     cleaners.forEach((clean) => clean());
     cleaners.splice(0);
@@ -956,9 +955,9 @@ export function removeDynamicTheme(): void {
 export function cleanDynamicThemeCache(): void {
     variablesStore.clear();
     parsedURLCache.clear();
-    invertSelectors.clear();
-    dimSelectors.clear();
-    lightSelectors.clear();
+    filterSelectors.invert.clear();
+    filterSelectors.dim.clear();
+    filterSelectors.light.clear();
     removeDocumentVisibilityListener();
     cancelRendering();
     stopWatchingForUpdates();
