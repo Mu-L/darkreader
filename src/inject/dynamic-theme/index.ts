@@ -118,9 +118,30 @@ const emptyPseudoClasses = [':before', ':after', ':empty'];
 function makeSelectorEmpty(selector: string) {
     selector = selector.trim();
     if (emptyPseudoClasses.some((pseudo) => selector.endsWith(pseudo))) {
-        return selector
+        return selector;
     }
     return `${selector}:empty`;
+}
+
+function isSelectorWithin(sub: string, parent: string): boolean {
+    if (sub === parent) {
+        return true;
+    }
+    if (!sub.startsWith(parent)) {
+        return false;
+    }
+    const rest = sub.slice(parent.length);
+    if (rest[0] === '.' || rest[0] === ':' || rest[0] === '#' || rest[0] === '[') {
+        return true;
+    }
+    const trimmed = rest.trim();
+    if (trimmed[0] === '+' || trimmed[0] === '~') {
+        return false;
+    }
+    if (trimmed[0] === '>') {
+        return true;
+    }
+    return rest.length !== trimmed.length;
 }
 
 setFilterSelectorHandler((selector, type) => {
@@ -128,16 +149,26 @@ setFilterSelectorHandler((selector, type) => {
         return;
     }
     const selectors = filterSelectors[type];
-    let didPush = false;
-    selector.split(',').forEach((value) => {
-        const s = makeSelectorEmpty(value);
-        if (selectors.has(s)) {
+    let changed = false;
+    selector.split(',').forEach((part) => {
+        const s = part.trim();
+        if (!s) {
             return;
         }
+        for (const existing of selectors) {
+            if (isSelectorWithin(s, existing)) {
+                return;
+            }
+        }
+        for (const existing of [...selectors]) {
+            if (isSelectorWithin(existing, s)) {
+                selectors.delete(existing);
+            }
+        }
         selectors.add(s);
-        didPush = true;
+        changed = true;
     });
-    if (didPush) {
+    if (changed) {
         scheduleInversionStyleUpdate();
     }
 });
@@ -161,16 +192,16 @@ function setInversionStyleValue(invertStyle: HTMLStyleElement) {
     };
 
     if ((fixes && Array.isArray(fixes.invert) && fixes.invert.length > 0) || filterSelectors.invert.size > 0) {
-        appendRule([...(fixes?.invert ?? []), ...filterSelectors.invert], getCSSFilterValue({
+        appendRule([...(fixes?.invert ?? []), ...[...filterSelectors.invert].map(makeSelectorEmpty)], getCSSFilterValue({
             ...theme,
             contrast: theme.mode === 0 ? theme.contrast : clamp(theme.contrast - 10, 0, 100),
         }));
     }
     if (filterSelectors.dim.size > 0) {
-        appendRule([...filterSelectors.dim], getCSSFilterValue(theme));
+        appendRule([...filterSelectors.dim].map(makeSelectorEmpty), getCSSFilterValue(theme));
     }
     if (filterSelectors.light.size > 0) {
-        appendRule([...filterSelectors.light], getCSSFilterValue({
+        appendRule([...filterSelectors.light].map(makeSelectorEmpty), getCSSFilterValue({
             ...theme,
             brightness: clamp(theme.brightness - 10, 5, 200),
             sepia: clamp(theme.sepia + 10, 0, 100),
