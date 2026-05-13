@@ -14,7 +14,7 @@ export function addFilterSelector(selector: string, type: keyof typeof filterSel
     let changed = false;
     selector.split(',').forEach((part) => {
         const s = part.trim();
-        if (!s) {
+        if (!s || selectors.has(s)) {
             return;
         }
         for (const existing of selectors) {
@@ -42,24 +42,26 @@ export function makeSelectorEmpty(selector: string) {
 }
 
 export function isSelectorWithin(sub: string, parent: string): boolean {
-    if (sub === parent) {
-        return true;
-    }
-    if (!sub.startsWith(parent)) {
+    const parentLength = parent.length;
+    const subLength = sub.length;
+    if (subLength < parentLength || !sub.startsWith(parent)) {
         return false;
     }
-    const rest = sub.slice(parent.length);
-    if (rest[0] === '.' || rest[0] === ':' || rest[0] === '#' || rest[0] === '[') {
+    if (subLength === parentLength) {
         return true;
     }
-    const trimmed = rest.trim();
-    if (trimmed[0] === '+' || trimmed[0] === '~') {
+    let i = parentLength;
+    const c = sub[i];
+    if (c === '.' || c === ':' || c === '#' || c === '[' || c === '>') {
+        return true;
+    }
+    if (c === '+' || c === '~' || c !== ' ') {
         return false;
     }
-    if (trimmed[0] === '>') {
-        return true;
+    while (sub[i] === ' ') {
+        i++;
     }
-    return rest.length !== trimmed.length;
+    return sub[i] !== '+' && sub[i] !== '~';
 }
 
 export function cleanFilterSelectors() {
