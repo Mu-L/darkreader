@@ -21,7 +21,7 @@ import {changeMetaThemeColorWhenAvailable, restoreMetaThemeColor} from './meta-t
 import {modifyBackgroundColor, modifyBorderColor, modifyForegroundColor} from './modify-colors';
 import {getModifiedUserAgentStyle, getModifiedFallbackStyle, cleanModificationCache, getSelectionColor, setFilterSelectorHandler} from './modify-css';
 import {clearColorPalette, getColorPalette, registerVariablesSheet, releaseVariablesSheet} from './palette';
-import {makeSelectorEmpty, filterSelectors, cleanFilterSelectors, addFilterSelector} from './selectors';
+import {filterSelectors, cleanFilterSelectors, addFilterSelector} from './selectors';
 import type {StyleElement, StyleManager} from './style-manager';
 import {manageStyle, getManageableStyles, cleanLoadingLinks, setIgnoredCSSURLs} from './style-manager';
 import {injectProxy} from './stylesheet-proxy';
@@ -140,16 +140,16 @@ function setInversionStyleValue(invertStyle: HTMLStyleElement) {
     };
 
     if ((fixes && Array.isArray(fixes.invert) && fixes.invert.length > 0) || filterSelectors.invert.size > 0) {
-        appendRule([...(fixes?.invert ?? []), ...[...filterSelectors.invert].map(makeSelectorEmpty)], getCSSFilterValue({
+        appendRule([...(fixes?.invert ?? []), ...[...filterSelectors.invert]], getCSSFilterValue({
             ...theme,
             contrast: theme.mode === 0 ? theme.contrast : clamp(theme.contrast - 10, 0, 100),
         }));
     }
     if (filterSelectors.dim.size > 0) {
-        appendRule([...filterSelectors.dim].map(makeSelectorEmpty), getCSSFilterValue(theme));
+        appendRule([...filterSelectors.dim], getCSSFilterValue(theme));
     }
     if (filterSelectors.light.size > 0) {
-        appendRule([...filterSelectors.light].map(makeSelectorEmpty), getCSSFilterValue({
+        appendRule([...filterSelectors.light], getCSSFilterValue({
             ...theme,
             brightness: clamp(theme.brightness - 10, 5, 200),
             sepia: clamp(theme.sepia + 10, 0, 100),
