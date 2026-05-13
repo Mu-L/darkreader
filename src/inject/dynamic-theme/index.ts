@@ -21,6 +21,7 @@ import {changeMetaThemeColorWhenAvailable, restoreMetaThemeColor} from './meta-t
 import {modifyBackgroundColor, modifyBorderColor, modifyForegroundColor} from './modify-colors';
 import {getModifiedUserAgentStyle, getModifiedFallbackStyle, cleanModificationCache, getSelectionColor, setFilterSelectorHandler} from './modify-css';
 import {clearColorPalette, getColorPalette, registerVariablesSheet, releaseVariablesSheet} from './palette';
+import {makeSelectorEmpty, filterSelectors, cleanFilterSelectors, addFilterSelector} from './selectors';
 import type {StyleElement, StyleManager} from './style-manager';
 import {manageStyle, getManageableStyles, cleanLoadingLinks, setIgnoredCSSURLs} from './style-manager';
 import {injectProxy} from './stylesheet-proxy';
@@ -100,12 +101,6 @@ function injectStaticStyle(style: HTMLStyleElement, prevNode: Node | null, watch
     }
 }
 
-const filterSelectors = {
-    invert: new Set<string>(),
-    dim: new Set<string>(),
-    light: new Set<string>(),
-};
-
 const scheduleInversionStyleUpdate = throttle(() => {
     const invertStyle = document.head?.querySelector<HTMLStyleElement>('.darkreader--invert');
     if (invertStyle) {
@@ -113,61 +108,8 @@ const scheduleInversionStyleUpdate = throttle(() => {
     }
 });
 
-const emptyPseudoClasses = [':before', ':after', ':empty'];
-
-function makeSelectorEmpty(selector: string) {
-    selector = selector.trim();
-    if (emptyPseudoClasses.some((pseudo) => selector.endsWith(pseudo))) {
-        return selector;
-    }
-    return `${selector}:empty`;
-}
-
-function isSelectorWithin(sub: string, parent: string): boolean {
-    if (sub === parent) {
-        return true;
-    }
-    if (!sub.startsWith(parent)) {
-        return false;
-    }
-    const rest = sub.slice(parent.length);
-    if (rest[0] === '.' || rest[0] === ':' || rest[0] === '#' || rest[0] === '[') {
-        return true;
-    }
-    const trimmed = rest.trim();
-    if (trimmed[0] === '+' || trimmed[0] === '~') {
-        return false;
-    }
-    if (trimmed[0] === '>') {
-        return true;
-    }
-    return rest.length !== trimmed.length;
-}
-
 setFilterSelectorHandler((selector, type) => {
-    if (!selector) {
-        return;
-    }
-    const selectors = filterSelectors[type];
-    let changed = false;
-    selector.split(',').forEach((part) => {
-        const s = part.trim();
-        if (!s) {
-            return;
-        }
-        for (const existing of selectors) {
-            if (isSelectorWithin(s, existing)) {
-                return;
-            }
-        }
-        for (const existing of [...selectors]) {
-            if (isSelectorWithin(existing, s)) {
-                selectors.delete(existing);
-            }
-        }
-        selectors.add(s);
-        changed = true;
-    });
+    const changed = addFilterSelector(selector, type);
     if (changed) {
         scheduleInversionStyleUpdate();
     }
@@ -1003,9 +945,7 @@ export function removeDynamicTheme(): void {
 export function cleanDynamicThemeCache(): void {
     variablesStore.clear();
     parsedURLCache.clear();
-    filterSelectors.invert.clear();
-    filterSelectors.dim.clear();
-    filterSelectors.light.clear();
+    cleanFilterSelectors();
     removeDocumentVisibilityListener();
     cancelRendering();
     stopWatchingForUpdates();
