@@ -106,6 +106,12 @@ const scheduleInversionStyleUpdate = throttle(() => {
     if (invertStyle) {
         setInversionStyleValue(invertStyle);
     }
+    shadowRootsWithOverrides.forEach((root) => {
+        const shadowInvertStyle = root.querySelector<HTMLStyleElement>('.darkreader--invert');
+        if (shadowInvertStyle) {
+            setInversionStyleValue(shadowInvertStyle);
+        }
+    });
 });
 
 setFilterSelectorHandler((selector, type) => {
