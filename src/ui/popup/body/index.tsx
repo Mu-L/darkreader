@@ -99,7 +99,7 @@ function Pages(props: ViewProps) {
 }
 
 function DonateGroup() {
-    let birthdayMessage = getLocalMessage('we_celebrate_10_years');
+    const birthdayMessage = getLocalMessage('we_celebrate_10_years');
     let birthdayMessageSpec = <span>{birthdayMessage}</span>;
     try {
         const index10 = birthdayMessage.indexOf('10');
